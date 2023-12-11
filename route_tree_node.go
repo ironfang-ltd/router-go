@@ -46,20 +46,8 @@ func newRouteTreeNode() *routeTreeNode {
 
 func (r *routeTreeNode) GetOrCreateNode(path string) *routeTreeNode {
 
-	if path == "" {
-		return r
-	}
-
-	if path == "/" {
-		return r
-	}
-
 	node := r
 	high := 0
-
-	if path[0] == PathSep {
-		path = path[1:]
-	}
 
 	for {
 		if len(path) == 0 {
@@ -72,6 +60,17 @@ func (r *routeTreeNode) GetOrCreateNode(path string) *routeTreeNode {
 		}
 
 		segment := path[:high]
+
+		if segment == "" {
+			node = r
+			high++
+			if high >= len(path) {
+				break
+			}
+			path = path[high:]
+			continue
+		}
+
 		found := false
 
 		for _, child := range node.children {
@@ -86,7 +85,7 @@ func (r *routeTreeNode) GetOrCreateNode(path string) *routeTreeNode {
 			newNode := newRouteTreeNode()
 			newNode.segment = segment
 			newNode.parent = node
-			newNode.param = segment[0] == ':'
+			newNode.param = segment != "" && segment[0] == ':'
 
 			node.children = append(node.children, newNode)
 

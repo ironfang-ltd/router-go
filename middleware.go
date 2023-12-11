@@ -8,13 +8,17 @@ import (
 type middlewareContext struct {
 	current    int
 	middleware []middleware.Handler
-	complete   bool
+	final      http.HandlerFunc
 }
 
 func (mc *middlewareContext) Next(w http.ResponseWriter, req *http.Request) error {
 
 	if mc.current >= len(mc.middleware) {
-		mc.complete = true
+
+		if mc.final != nil {
+			mc.final(w, req)
+		}
+
 		return nil
 	}
 

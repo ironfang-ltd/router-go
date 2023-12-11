@@ -73,7 +73,7 @@ func (r *router) Group(prefix string) Router {
 	group := router{
 		parent: r,
 		prefix: prefix,
-		root:   newRouteTreeNode(),
+		root:   nil,
 	}
 
 	return &group
@@ -102,14 +102,10 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ctx)
 	}
 
-	c, err := r.handleMiddleware(node, w, req)
+	err := r.handleMiddleware(node, w, req, handler)
 	if err != nil {
 		r.internalError(w, req, err)
 		return
-	}
-
-	if c {
-		handler(w, req)
 	}
 }
 
@@ -154,34 +150,35 @@ func (r *router) GetRoutes() []RouteDescriptor {
 	return routes
 }
 
-func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *http.Request) (bool, error) {
+func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *http.Request, final http.HandlerFunc) error {
 
-	if r.parent != nil {
-		c, err := r.parent.handleMiddleware(n, w, req)
+	if n.parent != nil {
+		err := r.handleMiddleware(n.parent, w, req, final)
 		if err != nil {
-			return false, err
+			return err
 		}
 
-		if !c {
-			return false, nil
-		}
+		return nil
 	}
 
 	if n.middleware == nil {
-		return true, nil
+		final(w, req)
+
+		return nil
 	}
 
 	mc := middlewareContext{
 		current:    0,
 		middleware: n.middleware,
+		final:      final,
 	}
 
 	err := mc.Next(w, req)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return mc.complete, nil
+	return nil
 }
 
 func (r *router) mapMethod(method, path string, handler http.HandlerFunc) *routeTreeNode {

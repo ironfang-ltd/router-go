@@ -26,15 +26,15 @@ func TestRouteTreeNode_FindNodeNested(t *testing.T) {
 	node, _ := rt.Find("/users/create")
 
 	if node == nil {
-		t.Error("node is nil")
+		t.Fatal("node is nil")
 	}
 
 	if node.parent != nil && node.parent.segment != "users" {
-		t.Error("node has no parent or parent segment is not 'users'")
+		t.Fatal("node has no parent or parent segment is not 'users'")
 	}
 
 	if node.segment != "create" {
-		t.Error("node segment is not 'create'")
+		t.Fatal("node segment is not 'create'")
 	}
 }
 
