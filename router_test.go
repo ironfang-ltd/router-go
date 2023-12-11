@@ -44,3 +44,19 @@ func BenchmarkGet(b *testing.B) {
 		r.ServeHTTP(w, req)
 	}
 }
+
+func BenchmarkGetWithParam(b *testing.B) {
+
+	req, _ := http.NewRequest("GET", "/test-value", nil)
+	w := httptest.NewRecorder()
+
+	r := New()
+
+	r.Get("/:name", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(RouteParam(r, "name")))
+	})
+
+	for n := 0; n < b.N; n++ {
+		r.ServeHTTP(w, req)
+	}
+}
