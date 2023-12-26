@@ -5,16 +5,17 @@ import (
 	"net/http"
 )
 
-func JSON(w http.ResponseWriter, code int, data interface{}) {
+func JSON(w http.ResponseWriter, code int, data interface{}) error {
 
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
-	_, _ = w.Write(jsonBytes)
+	w.Write(jsonBytes)
+
+	return nil
 }
