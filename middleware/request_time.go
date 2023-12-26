@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/ironfang-ltd/router-go"
 )
 
 type RequestTimeOption func(*RequestTimeConfig)
@@ -18,7 +20,7 @@ func WithHeaderName(name string) RequestTimeOption {
 	}
 }
 
-func RequestTime(opts ...RequestTimeOption) Handler {
+func RequestTime(opts ...RequestTimeOption) router.Middleware {
 
 	config := &RequestTimeConfig{
 		HeaderName: "X-Request-Time-Ms",
@@ -28,14 +30,12 @@ func RequestTime(opts ...RequestTimeOption) Handler {
 		opt(config)
 	}
 
-	return func(w http.ResponseWriter, r *http.Request, next Next) error {
+	return func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 
 		start := time.Now()
-		err := next(w, r)
-		taken := time.Now().Sub(start)
+		next(w, r)
+		taken := time.Since(start)
 
 		w.Header().Set(config.HeaderName, strconv.FormatInt(taken.Milliseconds(), 10))
-
-		return err
 	}
 }

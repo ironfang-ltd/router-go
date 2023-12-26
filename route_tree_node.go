@@ -1,7 +1,6 @@
 package router
 
 import (
-	"github.com/ironfang-ltd/router-go/middleware"
 	"net/http"
 	"sort"
 	"strings"
@@ -28,7 +27,7 @@ type routeTreeNode struct {
 	segment    string
 	parent     *routeTreeNode
 	children   []*routeTreeNode
-	middleware []middleware.Handler
+	middleware []Middleware
 	handlers   []http.HandlerFunc
 	param      bool
 }
@@ -186,10 +185,10 @@ func (r *routeTreeNode) GetHandler(method string) http.HandlerFunc {
 	return r.handlers[methodToUint8(method)]
 }
 
-func (r *routeTreeNode) Use(m ...middleware.Handler) {
+func (r *routeTreeNode) Use(m ...Middleware) {
 
 	if r.middleware == nil {
-		r.middleware = make([]middleware.Handler, 0)
+		r.middleware = make([]Middleware, 0)
 	}
 
 	r.middleware = append(r.middleware, m...)

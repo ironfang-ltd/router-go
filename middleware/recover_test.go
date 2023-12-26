@@ -12,30 +12,19 @@ func TestRecover(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 
-	m := Recover()
+	var result error
 
-	err := m(w, req, func(w http.ResponseWriter, r *http.Request) error {
-		panic("something went wrong")
-	})
+	m := Recover(WithHandler(func(w http.ResponseWriter, r *http.Request, err error) {
+		w.WriteHeader(http.StatusInternalServerError)
 
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
+		result = err
+	}))
 
-}
-
-func TestRecoverWithError(t *testing.T) {
-
-	req, _ := http.NewRequest("GET", "/", nil)
-	w := httptest.NewRecorder()
-
-	m := Recover()
-
-	err := m(w, req, func(w http.ResponseWriter, r *http.Request) error {
+	m(w, req, func(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("something went wrong"))
 	})
 
-	if err == nil {
+	if result == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }

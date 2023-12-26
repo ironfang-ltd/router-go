@@ -1,17 +1,18 @@
 package router
 
 import (
-	"github.com/ironfang-ltd/router-go/middleware"
 	"net/http"
 )
 
+type Middleware func(http.ResponseWriter, *http.Request, http.HandlerFunc)
+
 type middlewareContext struct {
 	current    int
-	middleware []middleware.Handler
+	middleware []Middleware
 	final      http.HandlerFunc
 }
 
-func (mc *middlewareContext) Next(w http.ResponseWriter, req *http.Request) error {
+func (mc *middlewareContext) Next(w http.ResponseWriter, req *http.Request) {
 
 	if mc.current >= len(mc.middleware) {
 
@@ -19,16 +20,11 @@ func (mc *middlewareContext) Next(w http.ResponseWriter, req *http.Request) erro
 			mc.final(w, req)
 		}
 
-		return nil
+		return
 	}
 
 	c := mc.current
 	mc.current++
 
-	err := mc.middleware[c](w, req, mc.Next)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	mc.middleware[c](w, req, mc.Next)
 }

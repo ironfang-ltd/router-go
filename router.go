@@ -2,8 +2,6 @@ package router
 
 import (
 	"context"
-	"fmt"
-	"github.com/ironfang-ltd/router-go/middleware"
 	"net/http"
 )
 
@@ -12,8 +10,10 @@ const (
 	ErrPathMustNotEndWithSlash = "path must not end with '/'"
 )
 
+type ErrorHandler func(w http.ResponseWriter, r *http.Request, err error)
+
 type Route interface {
-	Use(middleware ...middleware.Handler)
+	Use(middleware ...Middleware)
 }
 
 type Router interface {
@@ -23,7 +23,7 @@ type Router interface {
 	Patch(path string, handler http.HandlerFunc) Route
 	Delete(path string, handler http.HandlerFunc) Route
 	Group(prefix string) Router
-	Use(middleware ...middleware.Handler)
+	Use(middleware ...Middleware)
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	GetRoutes() []RouteDescriptor
 }
@@ -37,13 +37,25 @@ type router struct {
 	parent *router
 	prefix string
 	root   *routeTreeNode
+	config *RouterConfig
 }
 
-func New() Router {
+func New(opts ...RouterOption) Router {
+
+	config := &RouterConfig{
+		NotFoundHandler:         nil,
+		MethodNotAllowedHandler: nil,
+	}
+
+	for _, opt := range opts {
+		opt(config)
+	}
+
 	r := router{
 		parent: nil,
 		prefix: "",
 		root:   newRouteTreeNode(),
+		config: config,
 	}
 
 	return &r
@@ -79,7 +91,7 @@ func (r *router) Group(prefix string) Router {
 	return &group
 }
 
-func (r *router) Use(m ...middleware.Handler) {
+func (r *router) Use(m ...Middleware) {
 	r.root.Use(m...)
 }
 
@@ -102,11 +114,7 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ctx)
 	}
 
-	err := r.handleMiddleware(node, w, req, handler)
-	if err != nil {
-		r.internalError(w, req, err)
-		return
-	}
+	r.handleMiddleware(node, w, req, handler)
 }
 
 func (r *router) GetRoutes() []RouteDescriptor {
@@ -142,29 +150,24 @@ func (r *router) GetRoutes() []RouteDescriptor {
 			}
 		}
 
-		for _, child := range node.children {
-			q = append(q, child)
-		}
+		q = append(q, node.children...)
 	}
 
 	return routes
 }
 
-func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *http.Request, final http.HandlerFunc) error {
+func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *http.Request, final http.HandlerFunc) {
 
 	if n.parent != nil {
-		err := r.handleMiddleware(n.parent, w, req, final)
-		if err != nil {
-			return err
-		}
+		r.handleMiddleware(n.parent, w, req, final)
 
-		return nil
+		return
 	}
 
 	if n.middleware == nil {
 		final(w, req)
 
-		return nil
+		return
 	}
 
 	mc := middlewareContext{
@@ -173,12 +176,7 @@ func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *
 		final:      final,
 	}
 
-	err := mc.Next(w, req)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	mc.Next(w, req)
 }
 
 func (r *router) mapMethod(method, path string, handler http.HandlerFunc) *routeTreeNode {
@@ -200,15 +198,24 @@ func (r *router) mapMethod(method, path string, handler http.HandlerFunc) *route
 	return node
 }
 
-func (r *router) methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
+func (r *router) methodNotAllowed(w http.ResponseWriter, req *http.Request) {
+
+	if r.config.MethodNotAllowedHandler != nil {
+		r.config.MethodNotAllowedHandler(w, req)
+
+		return
+	}
+
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
-func (r *router) notFound(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
-}
+func (r *router) notFound(w http.ResponseWriter, req *http.Request) {
 
-func (r *router) internalError(w http.ResponseWriter, _ *http.Request, err error) {
-	fmt.Println(err)
-	w.WriteHeader(http.StatusInternalServerError)
+	if r.config.NotFoundHandler != nil {
+		r.config.NotFoundHandler(w, req)
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
 }
