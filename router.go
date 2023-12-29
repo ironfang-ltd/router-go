@@ -97,24 +97,27 @@ func (r *router) Use(m ...Middleware) {
 
 func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	node, params := r.root.Find(req.URL.Path)
-	if node == nil {
-		r.notFound(w, req)
-		return
-	}
+	r.handleMiddleware(r.root, w, req, func(w http.ResponseWriter, req *http.Request) {
 
-	handler := node.GetHandler(req.Method)
-	if handler == nil {
-		r.methodNotAllowed(w, req)
-		return
-	}
+		node, params := r.root.Find(req.URL.Path)
+		if node == nil {
+			r.notFound(w, req)
+			return
+		}
 
-	if params != nil {
-		ctx := context.WithValue(req.Context(), contextKeyRoute, params)
-		req = req.WithContext(ctx)
-	}
+		handler := node.GetHandler(req.Method)
+		if handler == nil {
+			r.methodNotAllowed(w, req)
+			return
+		}
 
-	r.handleMiddleware(node, w, req, handler)
+		if params != nil {
+			ctx := context.WithValue(req.Context(), contextKeyRoute, params)
+			req = req.WithContext(ctx)
+		}
+
+		r.handleMiddleware(node, w, req, handler)
+	})
 }
 
 func (r *router) GetRoutes() []RouteDescriptor {
@@ -158,7 +161,7 @@ func (r *router) GetRoutes() []RouteDescriptor {
 
 func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *http.Request, final http.HandlerFunc) {
 
-	if n.parent != nil {
+	if n.parent != nil && n.parent != r.root {
 		r.handleMiddleware(n.parent, w, req, final)
 
 		return
