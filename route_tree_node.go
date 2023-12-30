@@ -20,6 +20,7 @@ const (
 	httpMethodConnect
 	httpMethodOptions
 	httpMethodTrace
+	httpMethodAny
 	httpMethodCount
 )
 
@@ -182,6 +183,15 @@ func (r *routeTreeNode) SetHandler(method string, handler http.HandlerFunc) {
 }
 
 func (r *routeTreeNode) GetHandler(method string) http.HandlerFunc {
+
+	if r.handlers == nil {
+		return nil
+	}
+
+	if r.handlers[httpMethodAny] != nil {
+		return r.handlers[httpMethodAny]
+	}
+
 	return r.handlers[methodToUint8(method)]
 }
 
@@ -224,6 +234,8 @@ func methodToUint8(method string) uint8 {
 		return httpMethodOptions
 	case http.MethodTrace:
 		return httpMethodTrace
+	case "*":
+		return httpMethodAny
 	}
 
 	return httpMethodGet
@@ -250,9 +262,9 @@ func uint8ToMethod(method uint8) string {
 		return http.MethodOptions
 	case httpMethodTrace:
 		return http.MethodTrace
+	case httpMethodAny:
+		return "*"
 	default:
 		panic("unhandled default case")
 	}
-
-	return http.MethodGet
 }

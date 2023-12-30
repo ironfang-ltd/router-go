@@ -36,7 +36,7 @@ type RouteDescriptor struct {
 type router struct {
 	parent *router
 	prefix string
-	root   *routeTreeNode
+	node   *routeTreeNode
 	config *RouterConfig
 }
 
@@ -54,7 +54,7 @@ func New(opts ...RouterOption) Router {
 	r := router{
 		parent: nil,
 		prefix: "",
-		root:   newRouteTreeNode(),
+		node:   newRouteTreeNode(),
 		config: config,
 	}
 
@@ -81,50 +81,51 @@ func (r *router) Delete(path string, handler http.HandlerFunc) Route {
 	return r.mapMethod(http.MethodDelete, path, handler)
 }
 
+func (r *router) Any(path string, handler http.HandlerFunc) Route {
+	return r.mapMethod("*", path, handler)
+}
+
 func (r *router) Group(prefix string) Router {
 	group := router{
 		parent: r,
 		prefix: prefix,
-		root:   nil,
+		node:   newRouteTreeNode(),
 	}
 
 	return &group
 }
 
 func (r *router) Use(m ...Middleware) {
-	r.root.Use(m...)
+	r.node.Use(m...)
 }
 
 func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	r.handleMiddleware(r.root, w, req, func(w http.ResponseWriter, req *http.Request) {
+	node, params := r.node.Find(req.URL.Path)
+	if node == nil {
+		r.notFound(w, req)
+		return
+	}
 
-		node, params := r.root.Find(req.URL.Path)
-		if node == nil {
-			r.notFound(w, req)
-			return
-		}
+	handler := node.GetHandler(req.Method)
+	if handler == nil {
+		r.methodNotAllowed(w, req)
+		return
+	}
 
-		handler := node.GetHandler(req.Method)
-		if handler == nil {
-			r.methodNotAllowed(w, req)
-			return
-		}
+	if params != nil {
+		ctx := context.WithValue(req.Context(), contextKeyRoute, params)
+		req = req.WithContext(ctx)
+	}
 
-		if params != nil {
-			ctx := context.WithValue(req.Context(), contextKeyRoute, params)
-			req = req.WithContext(ctx)
-		}
-
-		r.handleMiddleware(node, w, req, handler)
-	})
+	r.handleMiddleware(node, w, req, handler)
 }
 
 func (r *router) GetRoutes() []RouteDescriptor {
 
 	var routes []RouteDescriptor
 
-	q := []*routeTreeNode{r.root}
+	q := []*routeTreeNode{r.node}
 
 	for {
 		if len(q) == 0 {
@@ -161,7 +162,7 @@ func (r *router) GetRoutes() []RouteDescriptor {
 
 func (r *router) handleMiddleware(n *routeTreeNode, w http.ResponseWriter, req *http.Request, final http.HandlerFunc) {
 
-	if n.parent != nil && n.parent != r.root {
+	if n.parent != nil {
 		r.handleMiddleware(n.parent, w, req, final)
 
 		return
@@ -196,7 +197,7 @@ func (r *router) mapMethod(method, path string, handler http.HandlerFunc) *route
 		panic(ErrPathMustNotEndWithSlash)
 	}
 
-	node := r.root.GetOrCreateNode(path)
+	node := r.node.GetOrCreateNode(path)
 	node.SetHandler(method, handler)
 	return node
 }
