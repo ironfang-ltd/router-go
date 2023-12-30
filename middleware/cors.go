@@ -11,11 +11,11 @@ import (
 type CorsOption func(*CorsConfig)
 
 type CorsConfig struct {
-	Origins     []string
-	Methods     []string
-	Headers     []string
-	MaxAge      int
-	Credentials string
+	Origins          []string
+	Methods          []string
+	Headers          []string
+	MaxAge           int
+	AllowCredentials bool
 }
 
 func WithOrigins(origins ...string) CorsOption {
@@ -36,9 +36,9 @@ func WithHeaders(headers ...string) CorsOption {
 	}
 }
 
-func WithCredentials(credentials string) CorsOption {
+func WithCredentials() CorsOption {
 	return func(c *CorsConfig) {
-		c.Credentials = credentials
+		c.AllowCredentials = true
 	}
 }
 
@@ -70,6 +70,11 @@ func Cors(opts ...CorsOption) router.Middleware {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 
 					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+
+						if config.AllowCredentials {
+							w.Header().Set("Access-Control-Allow-Credentials", "true")
+						}
+
 						w.Header().Set("Access-Control-Allow-Methods", strings.Join(config.Methods, ", "))
 						w.Header().Set("Access-Control-Allow-Headers", strings.Join(config.Headers, ", "))
 						w.Header().Set("Access-Control-Max-Age", fmt.Sprintf("%d", config.MaxAge))
