@@ -69,11 +69,11 @@ func Cors(opts ...CorsOption) router.Middleware {
 				if origin == config.Origins[i] {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 
-					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+					if config.AllowCredentials {
+						w.Header().Set("Access-Control-Allow-Credentials", "true")
+					}
 
-						if config.AllowCredentials {
-							w.Header().Set("Access-Control-Allow-Credentials", "true")
-						}
+					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 
 						w.Header().Set("Access-Control-Allow-Methods", strings.Join(config.Methods, ", "))
 						w.Header().Set("Access-Control-Allow-Headers", strings.Join(config.Headers, ", "))
