@@ -15,7 +15,7 @@ func (l RequestLocals) Set(key string, value interface{}) {
 	l[key] = value
 }
 
-func SetLocal(r *http.Request, key, value string) *http.Request {
+func SetLocal(r *http.Request, key string, value interface{}) *http.Request {
 
 	ctx := r.Context()
 
@@ -36,7 +36,7 @@ func SetLocal(r *http.Request, key, value string) *http.Request {
 	return r.WithContext(ctx)
 }
 
-func GetLocal(r *http.Request, key string) any {
+func GetLocal(r *http.Request, key string) interface{} {
 
 	ctx := r.Context()
 
