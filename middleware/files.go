@@ -12,7 +12,7 @@ type FilesConfig struct {
 	PublicDir string
 }
 
-func WitPublicDir(publicDir string) FilesOption {
+func WithPublicDir(publicDir string) FilesOption {
 	return func(c *FilesConfig) {
 		c.PublicDir = publicDir
 	}
