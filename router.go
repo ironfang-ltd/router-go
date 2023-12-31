@@ -108,7 +108,10 @@ func (r *router) Group(prefix string) Group {
 }
 
 func (r *router) Static(path, dir string) Route {
-	return r.mapMethod(http.MethodGet, r.node.getPath()+path+"*", StaticFileHandler(path, dir))
+	return r.mapMethod(
+		http.MethodGet,
+		r.node.getPath()+path+"*",
+		StaticFileHandler(r.node.getPath()+path, dir))
 }
 
 func (r *router) Use(m ...Middleware) {
