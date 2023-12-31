@@ -31,6 +31,7 @@ type routeTreeNode struct {
 	middleware []Middleware
 	handlers   []http.HandlerFunc
 	param      bool
+	catchAll   bool
 }
 
 func newRouteTreeNode() *routeTreeNode {
@@ -41,7 +42,22 @@ func newRouteTreeNode() *routeTreeNode {
 		middleware: nil,
 		handlers:   nil,
 		param:      false,
+		catchAll:   false,
 	}
+}
+
+func nodePriority(node *routeTreeNode) int {
+
+	if node.catchAll {
+		return 3
+	}
+
+	if node.param {
+		return 2
+	}
+
+	// static
+	return 1
 }
 
 func (r *routeTreeNode) GetOrCreateNode(path string) *routeTreeNode {
@@ -75,6 +91,7 @@ func (r *routeTreeNode) GetOrCreateNode(path string) *routeTreeNode {
 
 		for _, child := range node.children {
 			if child.segment == segment {
+				// TODO: Check for conflicting param/catchAll
 				node = child
 				found = true
 				break
@@ -86,14 +103,20 @@ func (r *routeTreeNode) GetOrCreateNode(path string) *routeTreeNode {
 			newNode.segment = segment
 			newNode.parent = node
 			newNode.param = segment != "" && segment[0] == ':'
+			newNode.catchAll = segment != "" && segment[len(segment)-1] == '*'
 
 			node.children = append(node.children, newNode)
 
-			sort.SliceStable(node.children, func(i, j int) bool {
-				return !node.param
+			sort.Slice(node.children, func(i, j int) bool {
+				// Sort Order: segment(static) > param > catchAll
+				return nodePriority(node.children[i]) < nodePriority(node.children[j])
 			})
 
 			node = newNode
+		}
+
+		if segment == "*" {
+			break
 		}
 
 		if high >= len(path) {
@@ -163,6 +186,8 @@ func (r *routeTreeNode) Find(path string) (*routeTreeNode, *routeParams) {
 				found = true
 				path = path[high:]
 				break
+			} else if child.catchAll {
+				return child, params
 			}
 		}
 

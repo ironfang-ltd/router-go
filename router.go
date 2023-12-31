@@ -22,10 +22,22 @@ type Router interface {
 	Put(path string, handler http.HandlerFunc) Route
 	Patch(path string, handler http.HandlerFunc) Route
 	Delete(path string, handler http.HandlerFunc) Route
-	Group(prefix string) Router
+	Group(prefix string) Group
+	Static(path, dir string) Route
 	Use(middleware ...Middleware)
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	GetRoutes() []RouteDescriptor
+}
+
+type Group interface {
+	Get(path string, handler http.HandlerFunc) Route
+	Post(path string, handler http.HandlerFunc) Route
+	Put(path string, handler http.HandlerFunc) Route
+	Patch(path string, handler http.HandlerFunc) Route
+	Delete(path string, handler http.HandlerFunc) Route
+	Group(prefix string) Group
+	Static(path, dir string) Route
+	Use(middleware ...Middleware)
 }
 
 type RouteDescriptor struct {
@@ -37,12 +49,12 @@ type router struct {
 	parent *router
 	prefix string
 	node   *routeTreeNode
-	config *RouterConfig
+	config *Config
 }
 
-func New(opts ...RouterOption) Router {
+func New(opts ...Option) Router {
 
-	config := &RouterConfig{
+	config := &Config{
 		NotFoundHandler:         nil,
 		MethodNotAllowedHandler: nil,
 	}
@@ -85,7 +97,7 @@ func (r *router) Any(path string, handler http.HandlerFunc) Route {
 	return r.mapMethod("*", path, handler)
 }
 
-func (r *router) Group(prefix string) Router {
+func (r *router) Group(prefix string) Group {
 	group := router{
 		parent: r,
 		prefix: prefix,
@@ -93,6 +105,10 @@ func (r *router) Group(prefix string) Router {
 	}
 
 	return &group
+}
+
+func (r *router) Static(path, dir string) Route {
+	return r.mapMethod(http.MethodGet, r.node.getPath()+path+"*", StaticFileHandler(path, dir))
 }
 
 func (r *router) Use(m ...Middleware) {

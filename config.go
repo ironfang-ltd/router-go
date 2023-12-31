@@ -2,21 +2,21 @@ package router
 
 import "net/http"
 
-type RouterOption func(*RouterConfig)
+type Option func(*Config)
 
-type RouterConfig struct {
+type Config struct {
 	NotFoundHandler         http.HandlerFunc
 	MethodNotAllowedHandler http.HandlerFunc
 }
 
-func WithNotFoundHandler(handler http.HandlerFunc) RouterOption {
-	return func(c *RouterConfig) {
+func WithNotFoundHandler(handler http.HandlerFunc) Option {
+	return func(c *Config) {
 		c.NotFoundHandler = handler
 	}
 }
 
-func WithMethodNotAllowedHandler(handler http.HandlerFunc) RouterOption {
-	return func(c *RouterConfig) {
+func WithMethodNotAllowedHandler(handler http.HandlerFunc) Option {
+	return func(c *Config) {
 		c.MethodNotAllowedHandler = handler
 	}
 }
